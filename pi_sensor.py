@@ -64,6 +64,13 @@ COMMAND_MOVE_BACKWARD = 3
 COMMAND_MOVE_RIGHT = 4
 COMMAND_MOVE_LEFT = 5
 COMMAND_CHANGE_VELOCITY = 6
+COMMAND_ARM_HOME = 7
+COMMAND_ARM_BASE = 8
+COMMAND_ARM_SHOULDER = 9
+COMMAND_ARM_ELBOW = 10
+COMMAND_ARM_GRIPPER = 11
+COMMAND_ARM_VELOCITY = 12
+
 
 # TODO (Activity 2): define your own command type for the color sensor here.
 # It must match the value you add to TCommandType in packets.h.
@@ -234,7 +241,7 @@ def printPacket(pkt):
         #   R: <params[0]> Hz, G: <params[1]> Hz, B: <params[2]> Hz
         elif cmd == RESP_COLOR_SENSOR:
             print(f"Color: R={pkt['params'][0]} Hz, G={pkt['params'][1]} Hz, B={pkt['params'][2]} Hz")
-        
+
         else:
             print(f"Response: unknown command {cmd}")
         # Print the optional debug string from the data field.
@@ -324,7 +331,7 @@ def handleLidarCommand():
     """
     # TODO
     if not isEstopActive():
-        lidarplot.plot_single_scan();
+        lidarplot.plot_single_scan()
 
     else:
         print("Refused: E-Stop is active.")
@@ -337,7 +344,7 @@ def handleLidarCommand():
 def handleMovementCommand(direction, distance):
 
     if not isEstopActive():
-        
+
         if direction == "w":
             sendCommand(COMMAND_MOVE_FORWARD, data = distance.encode())
 
@@ -351,15 +358,40 @@ def handleMovementCommand(direction, distance):
             sendCommand(COMMAND_MOVE_LEFT, data = distance.encode())
 
         elif direction == "v":
-            sendCommand(COMMAND_CHANGE_VELOCITY, data = distance.encode());
+            sendCommand(COMMAND_CHANGE_VELOCITY, data = distance.encode())
 
     else:
         print("Refused: E-Stop is active.")
 
 
+# ----------------------------------------------------------------
+# ARM CONTROLS
+# ----------------------------------------------------------------
 
+def handleArmCommand(command, angle = 0):
 
+    if not isEstopActive():
 
+        if command == "r":
+            sendCommand(COMMAND_ARM_HOME)
+
+        elif command == "t":
+            sendCommand(COMMAND_ARM_BASE, data = angle.encode())
+
+        elif command == "y":
+            sendCommand(COMMAND_ARM_SHOULDER, data = angle.encode())
+
+        elif command == "u":
+            sendCommand(COMMAND_ARM_ELBOW, data = angle.encode())
+
+        elif command == "i":
+            sendCommand(COMMAND_ARM_GRIPPER, data = angle.encode())
+
+        elif command == "o":
+            sendCommand(COMMAND_ARM_VELOCITY, data = angle.encode())
+
+    else:
+        print("Refused: E-Stop is Active")
 
 
 
@@ -385,7 +417,7 @@ def handleUserInput(line):
     line = line.split(" ")
     if line[0] == 'e':
         print("Sending E-Stop command...")
-        _estop_state = 1 -_estop_state       
+        _estop_state = 1 -_estop_state
         sendCommand(COMMAND_ESTOP, data=b'This is a debug message')
     elif line[0] =='c':
         print("Sending color command...")
@@ -401,8 +433,11 @@ def handleUserInput(line):
     elif line[0] in "wasdv":
         handleMovementCommand(line[0], line[1])
 
+    elif line[0] in "rtyuio":
+        handleArmCommand(line[0], line[1])
+
     else:
-        print(f"Unknown input: '{line}'. Valid: e, c, p, l, w, a, s, d")
+        print(f"Unknown input: '{line}'. Valid: e, c, p, l, w, a, s, d, v, r, t, y, u, i, o")
 
 
 def runCommandInterface():
@@ -412,7 +447,7 @@ def runCommandInterface():
     Uses select.select() to simultaneously receive packets from the Arduino
     and read typed user input from stdin without either blocking the other.
     """
-    print("Sensor interface ready. Type e / c / p / l / w / a / s / d and press Enter.")
+    print("Sensor interface ready. Type e / c / p / l / w / a / s / d / v / r / t / y / u / i / o and press Enter.")
     print("Press Ctrl+C to exit.\n")
 
     while True:
@@ -420,6 +455,7 @@ def runCommandInterface():
             pkt = receiveFrame()
             if pkt:
                 printPacket(pkt)
+                relay.onPacketReceived(packFrame(pkt['packetType'], pkt['command'], pkt['data'], pkt['params']))
 
         rlist, _, _ = select.select([sys.stdin], [], [], 0)
         if rlist:
@@ -429,6 +465,7 @@ def runCommandInterface():
                 continue
             handleUserInput(line)
 
+        relay.checkSecondTerminal(_ser)
         time.sleep(0.05)
 
 
@@ -436,8 +473,11 @@ def runCommandInterface():
 # MAIN
 # ----------------------------------------------------------------
 
+from second_terminal import relay
+
 if __name__ == '__main__':
     openSerial()
+    relay.start()
     try:
         runCommandInterface()
     except KeyboardInterrupt:
@@ -445,3 +485,4 @@ if __name__ == '__main__':
     finally:
         # TODO (Activities 3 & 4): close the camera and disconnect the LIDAR here if you opened them.
         closeSerial()
+        relay.shutdown()
