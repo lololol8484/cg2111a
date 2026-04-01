@@ -75,7 +75,7 @@ static unsigned long _currentTime = 0;
 // The THRESHOLD value for debouncing
 #define THRESHOLD 50  // in ms
 #define BUTTON_PIN PD0 // External Interrupt 0 is on Digital Pin 21 for Mega
- 
+
 ISR(INT0_vect) {
   // Read current pin state
   bool pressed = PIND & (1 << BUTTON_PIN);
@@ -88,7 +88,7 @@ ISR(INT0_vect) {
       }
       else{
         firstPnR = !firstPnR;
-      } 
+      }
     }
     else{
       if(!pressed){
@@ -159,7 +159,7 @@ ISR(INT1_vect) {
   edgeCount++;
 }
 
-void colorSensorsetup() {
+void colorSensorSetup() {
   DDRA |= (1 << S0) | (1 << S1) | (1 << S2) | (1 << S3);
 
   DDRD &= ~(1 << PD1);
@@ -172,14 +172,14 @@ void colorSensorsetup() {
 }
 
 uint32_t measureColor(uint8_t s2State, uint8_t s3State) {
-  if (s2State) 
-	PORTA |= (1 << S2);
-  else 
+  if (s2State)
+        PORTA |= (1 << S2);
+  else
         PORTA &= ~(1 << S2);
 
-  if (s3State) 
+  if (s3State)
         PORTA |= (1 << S3);
-  else   
+  else
         PORTA &= ~(1 << S3);
 
   edgeCount = 0;
@@ -189,16 +189,16 @@ uint32_t measureColor(uint8_t s2State, uint8_t s3State) {
   TCNT1 = 0;
   OCR1A = 24999;
 
-  EIMSK |= (1 << INT1);         
+  EIMSK |= (1 << INT1);
 
   TCCR1B = (1 << WGM12) | (1 << CS11) | (1 << CS10);
-  
+
   while (TCNT1<OCR1A);
 
   TCCR1B = 0;
-  EIMSK &= ~(1 << INT1);  
+  EIMSK &= ~(1 << INT1);
 
-  return edgeCount * 10; 
+  return edgeCount * 10;
 }
 
 void readColor(uint32_t *r, uint32_t *g, uint32_t *b) {
@@ -209,13 +209,13 @@ void readColor(uint32_t *r, uint32_t *g, uint32_t *b) {
 
 
 // =============================================================
-// Movement 
+// Movement
 // =============================================================
 
 volatile unsigned long leftEncoderTicks = 0;
 volatile unsigned long rightEncoderTicks = 0;
 volatile unsigned long targetTicks = 0;
-uint8_t velocity = 128;
+uint8_t robotVelocity = 128;
 #define distanceToTicks 1
 
 ISR(INT2_vect){
@@ -228,7 +228,7 @@ ISR(INT3_vect){
 
 void moveForward(int distance){
   targetTicks = distance * distanceToTicks;
-  forward(velocity);
+  forward(robotVelocity);
   while(leftEncoderTicks + rightEncoderTicks < targetTicks and buttonState == STATE_RUNNING){
     TPacket incoming;
     if (receiveFrame(&incoming)) {
@@ -242,7 +242,7 @@ void moveForward(int distance){
 
 void moveBackward(int distance){
   targetTicks = distance * distanceToTicks;
-  backward(velocity);
+  backward(robotVelocity);
   while(leftEncoderTicks + rightEncoderTicks < targetTicks and buttonState == STATE_RUNNING){
     TPacket incoming;
     if (receiveFrame(&incoming)) {
@@ -256,7 +256,7 @@ void moveBackward(int distance){
 
 void moveLeft(int distance){
   targetTicks = distance * distanceToTicks;
-  ccw(velocity);
+  ccw(robotVelocity);
   while(leftEncoderTicks + rightEncoderTicks < targetTicks and buttonState == STATE_RUNNING){
     TPacket incoming;
     if (receiveFrame(&incoming)) {
@@ -270,7 +270,7 @@ void moveLeft(int distance){
 
 void moveRight(int distance){
   targetTicks = distance * distanceToTicks;
-  cw(velocity);
+  cw(robotVelocity);
   while(leftEncoderTicks + rightEncoderTicks < targetTicks and buttonState == STATE_RUNNING){
     TPacket incoming;
     if (receiveFrame(&incoming)) {
@@ -324,7 +324,7 @@ static void handleCommand(const TPacket *cmd) {
             sendStatus(buttonState);
             break;
 
-    case COMMAND_COLOR_SENSOR: 
+    case COMMAND_COLOR_SENSOR:
       uint32_t r, g, b;
       TPacket resp;
       readColor(&r, &g, &b);
@@ -339,7 +339,7 @@ static void handleCommand(const TPacket *cmd) {
       sendFrame(&resp);
       break;
 
-    case COMMAND_MOVE_FORWARD: 
+    case COMMAND_MOVE_FORWARD:
       moveForward(String(cmd->data).toInt());
       break;
 
@@ -356,7 +356,44 @@ static void handleCommand(const TPacket *cmd) {
       break;
 
     case COMMAND_CHANGE_VELOCITY:
-      velocity = String(cmd->data).toInt();
+      robotVelocity = String(cmd->data).toInt();
+      break;
+
+    case COMMAND_ARM_HOME:
+      baseTarget = 15;
+      shoulderTarget = 90;
+      elbowTarget = 90;
+      gripperTarget = 115;
+      break;
+
+    case COMMAND_ARM_BASE:
+      int val = String(cmd->data).toInt();
+      val = constrain(val, baseMin, baseMax);
+      baseTarget = val;
+      break;
+
+    case COMMAND_ARM_SHOULDER:
+      int val = String(cmd->data).toInt();
+      val = constrain(val, shoulderMin, shoulderMax);
+      shoulderTarget = val;
+      break;
+
+    case COMMAND_ARM_ELBOW:
+      int val = String(cmd->data).toInt();
+      val = constrain(val, elbowMin, elbowMax);
+      elbowTarget = val;
+      break;
+
+    case COMMAND_ARM_GRIPPER:
+      int val = String(cmd->data).toInt();
+      val = constrain(val, gripperMin, gripperMax);
+      gripperTarget = val;
+      break;
+
+    case COMMAND_ARM_VELOCITY:
+      int val = String(cmd->data).toInt();
+      val = constrain(val, msPerDegMin, msPerDegMax);
+      msPerDeg = val;
       break;
 
             // call the color reading function;
@@ -385,7 +422,7 @@ void setup() {
   // TODO (Activity 1): configure the button pin and its external interrupt,
   // then call sei() to enable global interrupts.
   DDRD &= ~(1 << BUTTON_PIN);
-  // ISC00 = 1, ISC01 = 0 triggers on "Any logical change" for INT0 
+  // ISC00 = 1, ISC01 = 0 triggers on "Any logical change" for INT0
   // Falling edge for INT2 and INT3
   EICRA |= 0b10100001;
   // Set PD2 and PD3 as input
@@ -397,11 +434,12 @@ void setup() {
   // Enable INT0, INT2, INT3
   EIMSK |= (1 << INT0) | (1 << INT2) | (1 << INT3);
   TCCR2A = 0b00000010;
-  TIMSK2 = 0b00000010;  
+  TIMSK2 = 0b00000010;
   TCNT2 = 0;
   OCR2A = 200;
   TCCR2B = 0b00000010;
-  colorSensorsetup();
+  colorSensorSetup();
+  robotArmSetup();
   sei();
 }
 
