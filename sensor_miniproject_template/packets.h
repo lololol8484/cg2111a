@@ -28,8 +28,13 @@ typedef enum {
     COMMAND_MOVE_BACKWARD = 3,
     COMMAND_MOVE_RIGHT = 4,
     COMMAND_MOVE_LEFT = 5,
-    COMMAND_CHANGE_VELOCITY = 6
-
+    COMMAND_CHANGE_VELOCITY = 6,
+    COMMAND_ARM_HOME = 7,
+    COMMAND_ARM_BASE = 8,
+    COMMAND_ARM_SHOULDER = 9,
+    COMMAND_ARM_ELBOW = 10,
+    COMMAND_ARM_GRIPPER = 11,
+    COMMAND_ARM_VELOCITY = 12,
     // TODO (Activity 2): add your own command type for the color sensor
 } TCommandType;
 
