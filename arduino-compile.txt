@@ -1,0 +1,1 @@
+arduino-cli compile -b arduino:avr:mega -p /dev/ttyACM0 --upload sensor_miniproject_template
