@@ -77,6 +77,12 @@ COMMAND_MOVE_BACKWARD = 3
 COMMAND_MOVE_RIGHT = 4
 COMMAND_MOVE_LEFT = 5
 COMMAND_CHANGE_VELOCITY = 6
+COMMAND_ARM_HOME = 7
+COMMAND_ARM_BASE = 8
+COMMAND_ARM_SHOULDER = 9
+COMMAND_ARM_ELBOW = 10
+COMMAND_ARM_GRIPPER = 11
+COMMAND_ARM_VELOCITY = 12
 
 RESP_OK     = 0
 RESP_STATUS = 1
@@ -179,17 +185,48 @@ def _handleInput(line: str, client: TCPClient):
     if not line:
         return
 
-    if line == 'e':
+    line = line.split(" ")
+    if line[0] == 'e':
         frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ESTOP)
         sendTPacketFrame(client.sock, frame)
         print("[second_terminal] Sent: E-STOP")
 
-    elif line == 'q':
+    elif line[0] == 'h':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ARM_HOME)
+        sendTPacketFrame(client.sock, frame)
+        print("[second_terminal] Sent: Home")
+
+    elif line[0] == 'b':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ARM_BASE, line[1].encode())
+        sendTPacketFrame(client.sock, frame)
+        print("[second_terminal] Sent: Base")
+
+    elif line[0] == 's':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ARM_SHOULDER, line[1].encode())
+        sendTPacketFrame(client.sock, frame)
+        print("[second_terminal] Sent: Shoulder")
+
+    elif line[0] == 'w':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ARM_ELBOW, line[1].encode())
+        sendTPacketFrame(client.sock, frame)
+        print("[second_terminal] Sent: Elbow")
+
+    elif line[0] == 'g':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ARM_GRIPPER, line[1].encode())
+        sendTPacketFrame(client.sock, frame)
+        print("[second_terminal] Sent: Gripper")
+
+    elif line[0] == 'v':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ARM_VELOCITY, line[1].encode())
+        sendTPacketFrame(client.sock, frame)
+        print("[second_terminal] Sent: Velocity")
+
+    elif line[0] == 'q':
         print("[second_terminal] Quitting.")
         raise KeyboardInterrupt
 
     else:
-        print(f"[second_terminal] Unknown: '{line}'.  Valid: e (E-Stop)  q (quit)")
+        print(f"[second_terminal] Unknown: '{line}'.  Valid: e, h, b, s, w, g, v, q")
 
 
 # ---------------------------------------------------------------------------
