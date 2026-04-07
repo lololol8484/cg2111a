@@ -10,10 +10,10 @@ typedef enum dir
 } dir;
 
 // Motor control
-#define FRONT_LEFT   3 // M3 on the driver shield
-#define FRONT_RIGHT  2 // M2 on the driver shield
-#define BACK_LEFT    4 // M4 on the driver shield
-#define BACK_RIGHT   1 // M1 on the driver shield
+#define FRONT_LEFT   3 // M4 on the driver shield
+#define FRONT_RIGHT  2 // M1 on the driver shield
+#define BACK_LEFT    4 // M3 on the driver shield
+#define BACK_RIGHT   1 // M2 on the driver shield
 
 AF_DCMotor motorFL(FRONT_LEFT);
 AF_DCMotor motorFR(FRONT_RIGHT);
@@ -22,7 +22,7 @@ AF_DCMotor motorBR(BACK_RIGHT);
 
 void move(int speed, int direction)
 {
-  
+
   motorFL.setSpeed(speed);
   motorFR.setSpeed(speed);
   motorBL.setSpeed(speed);
@@ -34,36 +34,32 @@ void move(int speed, int direction)
         motorFL.run(BACKWARD);
         motorFR.run(BACKWARD);
         motorBL.run(FORWARD);
-        motorBR.run(FORWARD); 
+        motorBR.run(FORWARD);
       break;
       case GO:
         motorFL.run(FORWARD);
         motorFR.run(FORWARD);
         motorBL.run(BACKWARD);
-        motorBR.run(BACKWARD); 
+        motorBR.run(BACKWARD);
       break;
       case CCW:
-        // motorFL.run(BACKWARD);
-        motorFL.run(RELEASE);
+        motorFL.run(BACKWARD);
         motorFR.run(FORWARD);
-        // motorBL.run(FORWARD);
-        motorBL.run(RELEASE);
-        motorBR.run(BACKWARD); 
+        motorBL.run(FORWARD);
+        motorBR.run(BACKWARD);
       break;
       case CW:
         motorFL.run(FORWARD);
-        // motorFR.run(BACKWARD);
-        motorFR.run(RELEASE);
+        motorFR.run(BACKWARD);
         motorBL.run(BACKWARD);
-        // motorBR.run(FORWARD);
-        motorBR.run(RELEASE);
+        motorBR.run(FORWARD);
       break;
       case STOP:
       default:
         motorFL.run(RELEASE);
         motorFR.run(RELEASE);
         motorBL.run(RELEASE);
-        motorBR.run(RELEASE); 
+        motorBR.run(RELEASE);
     }
 }
 
@@ -91,4 +87,3 @@ void stop()
 {
   move(0, STOP);
 }
-
