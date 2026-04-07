@@ -79,8 +79,8 @@ static unsigned long _currentTime = 0;
 ISR(INT0_vect) {
   // Read current pin state
   bool pressed = PIND & (1 << BUTTON_PIN);
-  if (_currentTime - _lastTime > THRESHOLD) {
-    _lastTime = _currentTime;
+  if (millis() - _lastTime > THRESHOLD) {
+    _lastTime = millis();
     if(firstPnR){
       if (pressed){
         buttonState = STATE_STOPPED;
@@ -100,8 +100,8 @@ ISR(INT0_vect) {
   }
 }
 
-
-ISR(TIMER2_COMPA_vect) {
+/*
+ISR(TIMER4_COMPA_vect) {
   // triggers every 0.1 ms
   _timerTicks++;
   if (_timerTicks == 10) {
@@ -109,7 +109,7 @@ ISR(TIMER2_COMPA_vect) {
     _currentTime++; // shows the current time in ms
   }
 }
-
+*/
 
 // =============================================================
 // Color sensor (TCS3200)
@@ -184,18 +184,21 @@ uint32_t measureColor(uint8_t s2State, uint8_t s3State) {
 
   edgeCount = 0;
 
-  TCCR1A = 0;
-  TCCR1B = 0;
-  TCNT1 = 0;
-  OCR1A = 24999;
+  //TCCR5A = 0;
+  //TCCR5B = 0;
+  //TCNT5 = 0;
+  //OCR5A = 24999;
 
   EIMSK |= (1 << INT1);
 
-  TCCR1B = (1 << WGM12) | (1 << CS11) | (1 << CS10);
+  //TCCR5B = (1 << WGM52) | (1 << CS51) | (1 << CS50);
 
-  while (TCNT1<OCR1A);
+  //while (TCNT5<OCR5A);
 
-  TCCR1B = 0;
+  uint32_t prev_time = millis();
+  while(millis() - prev_time < 100);
+
+  //TCCR5B = 0;
   EIMSK &= ~(1 << INT1);
 
   return edgeCount * 10;
@@ -282,6 +285,89 @@ void moveRight(int distance){
   rightEncoderTicks = 0;
 }
 
+
+// =============================================================
+// Arm
+// =============================================================
+
+// MG90S Servo: 0° at 0.5ms, 90° at 1.5ms, 180° at 2.5ms, 20ms period
+// To get servo precision to 1°, we need timer precision to about 10us (20 ticks)
+
+volatile int basePos = 20, shoulderPos = 0, elbowPos = 80, gripperPos = 120; // degs
+volatile int baseTarget = 20, shoulderTarget = 0, elbowTarget = 80, gripperTarget = 120; // degs
+volatile int baseMin = 0, baseMax = 50;
+volatile int shoulderMin = 0, shoulderMax = 30;
+volatile int elbowMin = 70, elbowMax = 115;
+volatile int gripperMin = 90, gripperMax = 120;
+volatile int ticksArr[4] = { 1444, 2444, 5222, 8888 }; // no. of ticks before switching which servo to set to HIGH
+volatile int servoCount = 0; // indicates which servo is currently HIGH
+volatile int msPerDeg = 10;
+volatile int msPerDegMin = 5, msPerDegMax = 20; // to be updated
+
+ISR(TIMER5_COMPA_vect) { // 20ms reached
+  // we only update the current position of the servos once every 20ms
+  int stepSize = 20 / msPerDeg;
+  if(abs(basePos - baseTarget) >= stepSize){
+    basePos += (basePos < baseTarget) ? stepSize : -stepSize;
+  }
+  else{
+    basePos = baseTarget;
+  }
+  if(abs(shoulderPos - shoulderTarget) >= stepSize){
+    shoulderPos += (shoulderPos < shoulderTarget) ? stepSize : -stepSize;
+  }
+  else{
+    shoulderPos = shoulderTarget;
+  }
+  if(abs(elbowPos - elbowTarget) >= stepSize){
+    elbowPos += (elbowPos < elbowTarget) ? stepSize : -stepSize;
+  }
+  else{
+    elbowPos = elbowTarget;
+  }
+  if(abs(gripperPos - gripperTarget) >= stepSize){
+    gripperPos += (gripperPos < gripperTarget) ? stepSize : -stepSize;
+  }
+  else{
+    gripperPos = gripperTarget;
+  }
+  // +1000 -> base 0.5ms, *200/9 -> *2*2000/180 -> *2 for 2ms range, *2000 to convert ms to ticks, /180 to convert from degs
+  ticksArr[0] = 1000 + (basePos * 200) / 9;
+  ticksArr[1] = ticksArr[0] + 1000 + (shoulderPos * 200) / 9;
+  ticksArr[2] = ticksArr[1] + 1000 + (elbowPos * 200) / 9;
+  ticksArr[3] = ticksArr[2] + 1000 + (gripperPos * 200) / 9;
+  PORTC |= (1 << 0); // set D37 to HIGH
+  servoCount = 0; // reset servoCount
+  OCR5B = ticksArr[0];
+}
+
+ISR(TIMER5_COMPB_vect) { // time to switch which servo to set to HIGH
+  PORTC &= ~(1 << servoCount);
+  servoCount++;
+  if(servoCount <= 3) {
+    PORTC |= (1 << servoCount);
+    OCR5B = ticksArr[servoCount];
+  }
+}
+
+void robotArmSetup() {
+  DDRC = 0b00001111; // set D34-D37 as output
+  PORTC = 0b00000000; // set D34-D37 to LOW
+
+  // COM bits all set to 0 as we are not using OC3A or OC3B
+  // WGM bits set to 0b0100 as we are using CTC mode
+  // CS bits set to 0b010 as we are using prescaler of 8
+  // OCR3A set to 40000 to get 20ms period
+  // OCR3B will be used to generate the 0.5-2.5ms pulse for each servo
+  TCCR5A = 0b00000000;
+  TCNT5 = 0;
+  OCR5A = 40000;
+  OCR5B = 3000;
+  TIMSK5 = 0b00000110;
+  TCCR5B = 0b00001010;
+}
+
+
 // =============================================================
 // Command handler
 // =============================================================
@@ -360,40 +446,30 @@ static void handleCommand(const TPacket *cmd) {
       break;
 
     case COMMAND_ARM_HOME:
-      baseTarget = 15;
-      shoulderTarget = 90;
-      elbowTarget = 90;
-      gripperTarget = 115;
+      baseTarget = 20;
+      shoulderTarget = 0;
+      elbowTarget = 80;
+      gripperTarget = 120;
       break;
 
     case COMMAND_ARM_BASE:
-      int val = String(cmd->data).toInt();
-      val = constrain(val, baseMin, baseMax);
-      baseTarget = val;
+      baseTarget = constrain(String(cmd->data).toInt(), baseMin, baseMax);
       break;
 
     case COMMAND_ARM_SHOULDER:
-      int val = String(cmd->data).toInt();
-      val = constrain(val, shoulderMin, shoulderMax);
-      shoulderTarget = val;
+      shoulderTarget = constrain(String(cmd->data).toInt(), shoulderMin, shoulderMax);
       break;
 
     case COMMAND_ARM_ELBOW:
-      int val = String(cmd->data).toInt();
-      val = constrain(val, elbowMin, elbowMax);
-      elbowTarget = val;
+      elbowTarget = constrain(String(cmd->data).toInt(), elbowMin, elbowMax);
       break;
 
     case COMMAND_ARM_GRIPPER:
-      int val = String(cmd->data).toInt();
-      val = constrain(val, gripperMin, gripperMax);
-      gripperTarget = val;
+      gripperTarget = constrain(String(cmd->data).toInt(), gripperMin, gripperMax);
       break;
 
     case COMMAND_ARM_VELOCITY:
-      int val = String(cmd->data).toInt();
-      val = constrain(val, msPerDegMin, msPerDegMax);
-      msPerDeg = val;
+      msPerDeg = constrain(String(cmd->data).toInt(), msPerDegMin, msPerDegMax);
       break;
 
             // call the color reading function;
@@ -433,11 +509,11 @@ void setup() {
   PORTD |= (1 << PORTD3);
   // Enable INT0, INT2, INT3
   EIMSK |= (1 << INT0) | (1 << INT2) | (1 << INT3);
-  TCCR2A = 0b00000010;
-  TIMSK2 = 0b00000010;
-  TCNT2 = 0;
-  OCR2A = 200;
-  TCCR2B = 0b00000010;
+  //TCCR4A = 0b00000000;
+  //TIMSK4 = 0b00000010;
+  //TCNT4 = 0;
+  //OCR4A = 200;
+  //TCCR4B = 0b00001010;
   colorSensorSetup();
   robotArmSetup();
   sei();
