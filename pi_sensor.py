@@ -287,7 +287,7 @@ def handleColorCommand():
 import alex_camera as ac
 
 _camera = ac.cameraOpen()   # TODO (Activity 3): open the camera (cameraOpen()) before first use.
-_frames_remaining = 5   # frames remaining before further captures are refused
+_frames_remaining = 10   # frames remaining before further captures are refused
 
 def handleCameraCommand():
     """
@@ -365,37 +365,6 @@ def handleMovementCommand(direction, distance):
 
 
 # ----------------------------------------------------------------
-# ARM CONTROLS
-# ----------------------------------------------------------------
-
-def handleArmCommand(command, angle = 0):
-
-    if not isEstopActive():
-
-        if command == "r":
-            sendCommand(COMMAND_ARM_HOME)
-
-        elif command == "t":
-            sendCommand(COMMAND_ARM_BASE, data = angle.encode())
-
-        elif command == "y":
-            sendCommand(COMMAND_ARM_SHOULDER, data = angle.encode())
-
-        elif command == "u":
-            sendCommand(COMMAND_ARM_ELBOW, data = angle.encode())
-
-        elif command == "i":
-            sendCommand(COMMAND_ARM_GRIPPER, data = angle.encode())
-
-        elif command == "o":
-            sendCommand(COMMAND_ARM_VELOCITY, data = angle.encode())
-
-    else:
-        print("Refused: E-Stop is Active")
-
-
-
-# ----------------------------------------------------------------
 # COMMAND-LINE INTERFACE
 # ----------------------------------------------------------------
 
@@ -433,11 +402,8 @@ def handleUserInput(line):
     elif line[0] in "wasdv":
         handleMovementCommand(line[0], line[1])
 
-    elif line[0] in "rtyuio":
-        handleArmCommand(line[0], line[1])
-
     else:
-        print(f"Unknown input: '{line}'. Valid: e, c, p, l, w, a, s, d, v, r, t, y, u, i, o")
+        print(f"Unknown input: '{line}'. Valid: e, c, p, l, w, a, s, d, v")
 
 
 def runCommandInterface():
@@ -447,7 +413,7 @@ def runCommandInterface():
     Uses select.select() to simultaneously receive packets from the Arduino
     and read typed user input from stdin without either blocking the other.
     """
-    print("Sensor interface ready. Type e / c / p / l / w / a / s / d / v / r / t / y / u / i / o and press Enter.")
+    print("Sensor interface ready. Type e / c / p / l / w / a / s / d / v and press Enter.")
     print("Press Ctrl+C to exit.\n")
 
     while True:
