@@ -50,7 +50,7 @@ def lidarConnect(port=PORT, baudrate=BAUDRATE, wait=2):
     global _LIDAR_OBJECT
     if _LIDAR_OBJECT is not None:
         return _LIDAR_OBJECT
-    
+
     lidar = PyRPlidar()
 
     # We reset the lidar and reconnect to ensure proper function.
@@ -91,7 +91,7 @@ def lidarStatus(lidar:PyRPlidar = _LIDAR_OBJECT, verbose = True):
     Args:
         lidar (PyRPlidar): The lidar device for which to get the status.
         doPrint (bool, optional): Whether to print the status information. Defaults to True.
-    
+
     Returns:
         dict: A dictionary containing the health, info, scan modes, and typical scan mode of the lidar device.
     """
@@ -101,7 +101,7 @@ def lidarStatus(lidar:PyRPlidar = _LIDAR_OBJECT, verbose = True):
     info = lidar.get_info()
     scan_modes = lidar.get_scan_modes()
     typical_scan_mode = lidar.get_scan_mode_typical()
-    
+
     if verbose:
         print("Health: ", health)
         print("Info: ", info)
@@ -184,11 +184,50 @@ def performSingleScan(lidar:PyRPlidar = _LIDAR_OBJECT , mode=2):
             # We do not have a full scan yet, continue
             pass
 
+
+def mask_occlusion(angles, distances, qualities,
+                   min_angle, max_angle,
+                   mode="remove"):
+    """
+    Masks out a sector of lidar data.
+
+    mode:
+        "remove" → deletes points
+        "inf"    → sets distance to inf
+        "zero"   → sets distance to 0
+    """
+    new_ang = []
+    new_dist = []
+    new_qual = []
+
+    for a, d, q in zip(angles, distances, qualities):
+        # Check if angle is inside blocked region
+        if min_angle <= max_angle:
+            blocked = (min_angle <= a <= max_angle)
+        else:
+            # handles wrap-around (e.g. 350° to 20°)
+            blocked = (a >= min_angle or a <= max_angle)
+
+        if blocked:
+            if mode == "remove":
+                continue
+            elif mode == "inf":
+                d = float("inf")
+            elif mode == "zero":
+                d = 0
+
+        new_ang.append(a)
+        new_dist.append(d)
+        new_qual.append(q)
+
+    return tuple(new_ang), tuple(new_dist), tuple(new_qual)
+
+
 def process_scan(incomingScanTuple, scanState = {"r":0, "buff":[], "doScan":False}):
     """
     Processes incoming scan data and manages scan rounds.
     This function processes incoming scan data from the RPLidar device, buffering scans and returning complete scan data for 1 full rotation.
-    
+
     This function should be called for each incoming scan data tuple from the RPLidar device. It buffers the incoming scans until a full rotation is completed, then returns the angles and distances for the full rotation.
 
     State is maintained in the scanState dictionary, which keeps track of the current scan round (i.e., how many full rotations have been completed), the buffer of scans (i.e., the scan data points that have been received in the current rotation), and whether a scan is currently in progress (to keep track of the start of a new rotation).
@@ -219,6 +258,12 @@ def process_scan(incomingScanTuple, scanState = {"r":0, "buff":[], "doScan":Fals
         ang = tuple([x.angle for x in scanState["buff"]])
         dist = tuple([x.distance for x in scanState["buff"]])
         quality = tuple([x.quality for x in scanState["buff"]])
+        ang, dist, quality = mask_occlusion(
+            ang, dist, quality,
+            min_angle=120,   # <-- adjust this
+            max_angle=240,   # <-- adjust this
+            mode="8000"       # recommended for SLAM
+        )
         # Clear the buffer to make way for the next scan
         buff.clear()
         # add current scan to the buffer as the first scan of the next round
@@ -229,19 +274,19 @@ def process_scan(incomingScanTuple, scanState = {"r":0, "buff":[], "doScan":Fals
     if scanState["doScan"]:
         # add the scan to the buffer if we are in a scan
         scanState["buff"].append(scan)
-        
+
     return (scanState, None)
 
 
-def resampleLidarScan(distance, angles, 
-                        target_measurements_per_scan = 360, offset_degrees = 0, 
-                        merge_strategy=np.mean, 
+def resampleLidarScan(distance, angles,
+                        target_measurements_per_scan = 360, offset_degrees = 0,
+                        merge_strategy=np.mean,
                         fill_value=0):
     """
-    Resample a LIDAR scan to a specified number of measurements per scan. This function is useful for downsampling the LIDAR data to a more manageable size for display or processing. This function can also apply an offset to the angles, allowing for the rotation of the LIDAR data to reorient the scans to a different reference frame. 
+    Resample a LIDAR scan to a specified number of measurements per scan. This function is useful for downsampling the LIDAR data to a more manageable size for display or processing. This function can also apply an offset to the angles, allowing for the rotation of the LIDAR data to reorient the scans to a different reference frame.
 
-    For example, the lidar might produce 1080 measurements per scan. However, for our purposes, that is too much data. So we group (or Bin) the measurements by angle (i.e., 0-1 degrees, 1-2 degrees) and take the average of the distances in each group. This reduces the number of measurements to 360, which is more manageable. 
-    
+    For example, the lidar might produce 1080 measurements per scan. However, for our purposes, that is too much data. So we group (or Bin) the measurements by angle (i.e., 0-1 degrees, 1-2 degrees) and take the average of the distances in each group. This reduces the number of measurements to 360, which is more manageable.
+
     Args:
         distance (list): A list of distance measurements from the LIDAR scan.
         angles (list): A list of angles corresponding to the distance measurements.
@@ -256,16 +301,16 @@ def resampleLidarScan(distance, angles,
 
     # Handle adding the offset to the angles
     # create an array of angles using the numpy library
-    angles = np.array(angles) 
+    angles = np.array(angles)
     # Add the offset to the angles and wrap around to 0-360
     # For numpy arrays, if you add a scalar (i.e., a single number) to an array, it adds the scalar to each element of the array. This can also be applied to subtraction, multiplication, division, and modulo operations.
     # Example: If angles = [10, 20, 30] and offset_degrees = 5, then angles + offset_degrees = [15, 25, 35]
     # The modulo operation (%) is used to wrap the angles around to the range 0-360. For example, if the angles are [355, 5, 15] and the offset is 10, the result should be [5, 15, 25] (not [365, 15, 25]).
-    angles = (angles + offset_degrees) % 360 
+    angles = (angles + offset_degrees) % 360
 
     # Calculate the target degree per measurement
     # This is targeted change in the angle for each distance measurement in the final result
-    target_degree_per_measurement = 360 / target_measurements_per_scan 
+    target_degree_per_measurement = 360 / target_measurements_per_scan
 
     # Create angular bins. Each bin corresponds to a range of angles (i.e., 0-10 degrees, 10-20 degrees, etc.)
     # The bin limits are later used to group the distances that are within the same angular range
@@ -273,11 +318,11 @@ def resampleLidarScan(distance, angles,
     bin_limits = np.array([x for x in np.arange(0,360,target_degree_per_measurement)]+[360]) # Create the bin limits [0 ... 360]
 
     # For each angle, determine the index of the bin to which it belongs
-    indices = np.digitize(angles, bin_limits) 
+    indices = np.digitize(angles, bin_limits)
 
     # Group the distances by the angular bins
     temp = [[] for _ in range(0, len(bin_limits)-1)]
-    # For each distance, check the index of the bin to which it belongs and add it to the corresponding bin 
+    # For each distance, check the index of the bin to which it belongs and add it to the corresponding bin
     for i, idx in enumerate(indices):
         temp[idx-1].append(distance[i])
 
@@ -286,7 +331,7 @@ def resampleLidarScan(distance, angles,
     # Here list comprehension is used to apply the merge_strategy function to each bin
     # If the bin is empty (i.e., no distances), the fill_value is used
     new_distance = [(merge_strategy(y) if y!=[] else fill_value) for y in temp]
-    
+
     # Return the resampled distances and angles
     # We use the left limit of each bin as the angle for the resampled data
     # For example, if the bin limits are 0-10, 10-20, 20-30 the angles will be [0, 10, 20]
@@ -294,4 +339,3 @@ def resampleLidarScan(distance, angles,
 
 
 
-            
