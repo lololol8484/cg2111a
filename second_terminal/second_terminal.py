@@ -184,7 +184,7 @@ def _handleInput(line: str, client: TCPClient):
     line = line.strip().lower()
     if not line:
         return
-
+    
     line = line.split(" ")
     if line[0] == 'e':
         frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ESTOP)

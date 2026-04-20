@@ -22,7 +22,7 @@ AF_DCMotor motorBR(BACK_RIGHT);
 
 void move(int speed, int direction)
 {
-
+  
   motorFL.setSpeed(speed);
   motorFR.setSpeed(speed);
   motorBL.setSpeed(speed);
@@ -34,32 +34,32 @@ void move(int speed, int direction)
         motorFL.run(BACKWARD);
         motorFR.run(BACKWARD);
         motorBL.run(FORWARD);
-        motorBR.run(FORWARD);
+        motorBR.run(FORWARD); 
       break;
       case GO:
         motorFL.run(FORWARD);
         motorFR.run(FORWARD);
         motorBL.run(BACKWARD);
-        motorBR.run(BACKWARD);
+        motorBR.run(BACKWARD); 
       break;
       case CCW:
         motorFL.run(BACKWARD);
         motorFR.run(FORWARD);
         motorBL.run(FORWARD);
-        motorBR.run(BACKWARD);
+        motorBR.run(BACKWARD); 
       break;
       case CW:
         motorFL.run(FORWARD);
         motorFR.run(BACKWARD);
         motorBL.run(BACKWARD);
-        motorBR.run(FORWARD);
+        motorBR.run(FORWARD); 
       break;
       case STOP:
       default:
         motorFL.run(RELEASE);
         motorFR.run(RELEASE);
         motorBL.run(RELEASE);
-        motorBR.run(RELEASE);
+        motorBR.run(RELEASE); 
     }
 }
 

@@ -75,7 +75,7 @@ static unsigned long _currentTime = 0;
 // The THRESHOLD value for debouncing
 #define THRESHOLD 50  // in ms
 #define BUTTON_PIN PD0 // External Interrupt 0 is on Digital Pin 21 for Mega
-
+ 
 ISR(INT0_vect) {
   // Read current pin state
   bool pressed = PIND & (1 << BUTTON_PIN);
@@ -88,7 +88,7 @@ ISR(INT0_vect) {
       }
       else{
         firstPnR = !firstPnR;
-      }
+      } 
     }
     else{
       if(!pressed){
@@ -172,14 +172,14 @@ void colorSensorSetup() {
 }
 
 uint32_t measureColor(uint8_t s2State, uint8_t s3State) {
-  if (s2State)
-        PORTA |= (1 << S2);
-  else
+  if (s2State) 
+	PORTA |= (1 << S2);
+  else 
         PORTA &= ~(1 << S2);
 
-  if (s3State)
+  if (s3State) 
         PORTA |= (1 << S3);
-  else
+  else   
         PORTA &= ~(1 << S3);
 
   edgeCount = 0;
@@ -189,19 +189,19 @@ uint32_t measureColor(uint8_t s2State, uint8_t s3State) {
   //TCNT5 = 0;
   //OCR5A = 24999;
 
-  EIMSK |= (1 << INT1);
+  EIMSK |= (1 << INT1);         
 
   //TCCR5B = (1 << WGM52) | (1 << CS51) | (1 << CS50);
-
+  
   //while (TCNT5<OCR5A);
 
   uint32_t prev_time = millis();
   while(millis() - prev_time < 100);
 
   //TCCR5B = 0;
-  EIMSK &= ~(1 << INT1);
+  EIMSK &= ~(1 << INT1);  
 
-  return edgeCount * 10;
+  return edgeCount * 10; 
 }
 
 void readColor(uint32_t *r, uint32_t *g, uint32_t *b) {
@@ -212,13 +212,13 @@ void readColor(uint32_t *r, uint32_t *g, uint32_t *b) {
 
 
 // =============================================================
-// Movement
+// Movement 
 // =============================================================
 
 volatile unsigned long leftEncoderTicks = 0;
 volatile unsigned long rightEncoderTicks = 0;
 volatile unsigned long targetTicks = 0;
-uint8_t robotVelocity = 128;
+uint8_t robotVelocity = 255;
 #define distanceToTicks 1
 
 ISR(INT2_vect){
@@ -287,19 +287,19 @@ void moveRight(int distance){
 
 
 // =============================================================
-// Arm
+// Arm 
 // =============================================================
 
 // MG90S Servo: 0° at 0.5ms, 90° at 1.5ms, 180° at 2.5ms, 20ms period
 // To get servo precision to 1°, we need timer precision to about 10us (20 ticks)
 
-volatile int basePos = 20, shoulderPos = 0, elbowPos = 80, gripperPos = 120; // degs
-volatile int baseTarget = 20, shoulderTarget = 0, elbowTarget = 80, gripperTarget = 120; // degs
-volatile int baseMin = 0, baseMax = 50;
-volatile int shoulderMin = 0, shoulderMax = 30;
-volatile int elbowMin = 70, elbowMax = 115;
+volatile int basePos = 90, shoulderPos = 10, elbowPos = 50, gripperPos = 120; // degs
+volatile int baseTarget = 90, shoulderTarget = 10, elbowTarget = 50, gripperTarget = 120; // degs
+volatile int baseMin = 80, baseMax = 100;
+volatile int shoulderMin = 10, shoulderMax = 70;
+volatile int elbowMin = 50, elbowMax = 90;
 volatile int gripperMin = 90, gripperMax = 120;
-volatile int ticksArr[4] = { 1444, 2444, 5222, 8888 }; // no. of ticks before switching which servo to set to HIGH
+volatile int ticksArr[4] = { 3000, 4222, 6333, 9999 }; // no. of ticks before switching which servo to set to HIGH
 volatile int servoCount = 0; // indicates which servo is currently HIGH
 volatile int msPerDeg = 10;
 volatile int msPerDegMin = 5, msPerDegMax = 20; // to be updated
@@ -410,7 +410,7 @@ static void handleCommand(const TPacket *cmd) {
             sendStatus(buttonState);
             break;
 
-    case COMMAND_COLOR_SENSOR:
+    case COMMAND_COLOR_SENSOR: 
       uint32_t r, g, b;
       TPacket resp;
       readColor(&r, &g, &b);
@@ -425,7 +425,7 @@ static void handleCommand(const TPacket *cmd) {
       sendFrame(&resp);
       break;
 
-    case COMMAND_MOVE_FORWARD:
+    case COMMAND_MOVE_FORWARD: 
       moveForward(String(cmd->data).toInt());
       break;
 
@@ -446,28 +446,28 @@ static void handleCommand(const TPacket *cmd) {
       break;
 
     case COMMAND_ARM_HOME:
-      baseTarget = 20;
-      shoulderTarget = 0;
-      elbowTarget = 80;
+      baseTarget = 90;
+      shoulderTarget = 10;
+      elbowTarget = 50;
       gripperTarget = 120;
       break;
-
+    
     case COMMAND_ARM_BASE:
       baseTarget = constrain(String(cmd->data).toInt(), baseMin, baseMax);
       break;
-
+    
     case COMMAND_ARM_SHOULDER:
       shoulderTarget = constrain(String(cmd->data).toInt(), shoulderMin, shoulderMax);
       break;
-
+    
     case COMMAND_ARM_ELBOW:
       elbowTarget = constrain(String(cmd->data).toInt(), elbowMin, elbowMax);
       break;
-
+    
     case COMMAND_ARM_GRIPPER:
       gripperTarget = constrain(String(cmd->data).toInt(), gripperMin, gripperMax);
       break;
-
+ 
     case COMMAND_ARM_VELOCITY:
       msPerDeg = constrain(String(cmd->data).toInt(), msPerDegMin, msPerDegMax);
       break;
@@ -498,7 +498,7 @@ void setup() {
   // TODO (Activity 1): configure the button pin and its external interrupt,
   // then call sei() to enable global interrupts.
   DDRD &= ~(1 << BUTTON_PIN);
-  // ISC00 = 1, ISC01 = 0 triggers on "Any logical change" for INT0
+  // ISC00 = 1, ISC01 = 0 triggers on "Any logical change" for INT0 
   // Falling edge for INT2 and INT3
   EICRA |= 0b10100001;
   // Set PD2 and PD3 as input
@@ -510,7 +510,7 @@ void setup() {
   // Enable INT0, INT2, INT3
   EIMSK |= (1 << INT0) | (1 << INT2) | (1 << INT3);
   //TCCR4A = 0b00000000;
-  //TIMSK4 = 0b00000010;
+  //TIMSK4 = 0b00000010;  
   //TCNT4 = 0;
   //OCR4A = 200;
   //TCCR4B = 0b00001010;

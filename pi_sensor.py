@@ -241,7 +241,7 @@ def printPacket(pkt):
         #   R: <params[0]> Hz, G: <params[1]> Hz, B: <params[2]> Hz
         elif cmd == RESP_COLOR_SENSOR:
             print(f"Color: R={pkt['params'][0]} Hz, G={pkt['params'][1]} Hz, B={pkt['params'][2]} Hz")
-
+        
         else:
             print(f"Response: unknown command {cmd}")
         # Print the optional debug string from the data field.
@@ -287,7 +287,7 @@ def handleColorCommand():
 import alex_camera as ac
 
 _camera = ac.cameraOpen()   # TODO (Activity 3): open the camera (cameraOpen()) before first use.
-_frames_remaining = 10   # frames remaining before further captures are refused
+_frames_remaining = 15   # frames remaining before further captures are refused
 
 def handleCameraCommand():
     """
@@ -344,7 +344,7 @@ def handleLidarCommand():
 def handleMovementCommand(direction, distance):
 
     if not isEstopActive():
-
+        
         if direction == "w":
             sendCommand(COMMAND_MOVE_FORWARD, data = distance.encode())
 
@@ -386,7 +386,7 @@ def handleUserInput(line):
     line = line.split(" ")
     if line[0] == 'e':
         print("Sending E-Stop command...")
-        _estop_state = 1 -_estop_state
+        _estop_state = 1 -_estop_state       
         sendCommand(COMMAND_ESTOP, data=b'This is a debug message')
     elif line[0] =='c':
         print("Sending color command...")
@@ -430,7 +430,7 @@ def runCommandInterface():
                 time.sleep(0.05)
                 continue
             handleUserInput(line)
-
+        
         relay.checkSecondTerminal(_ser)
         time.sleep(0.05)
 
