@@ -156,7 +156,7 @@ def receiveFrame():
         # Read and discard bytes until we see the first magic byte.
         b = _ser.read(1)
         if not b:
-            return None          # timeout
+            return None
         if b[0] != MAGIC_HI:
             continue
 

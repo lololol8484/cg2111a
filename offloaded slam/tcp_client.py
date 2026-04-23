@@ -23,14 +23,12 @@ import time
 from typing import Optional
 
 import matplotlib
-matplotlib.use("TkAgg")          # change to "Qt5Agg" / "MacOSX" if needed
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 
-# ---------------------------------------------------------------------------
-# Constants – must match settings.py on the Pi
-# ---------------------------------------------------------------------------
+# Constants 
 MAP_SIZE_PIXELS  = 1000
 MAP_SIZE_METERS  = 5
 MAP_QUALITY      = 7
@@ -44,9 +42,6 @@ UNKNOWN_BYTE     = 127
 UI_REFRESH_HZ    = 8
 
 
-# ---------------------------------------------------------------------------
-# Thread-safe state: the SLAM thread writes, the Matplotlib thread reads
-# ---------------------------------------------------------------------------
 class _SlamState:
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -98,11 +93,6 @@ class _SlamState:
                 "connected":    self.connected,
             }
 
-
-# ---------------------------------------------------------------------------
-# Background thread: receive scans → run SLAM → update state
-# ---------------------------------------------------------------------------
-
 def _slam_loop(host: str, port: int, state: _SlamState,
                stop_event: threading.Event) -> None:
     """Connects to the Pi, receives scan JSON, feeds BreezySLAM, updates state."""
@@ -115,7 +105,7 @@ def _slam_loop(host: str, port: int, state: _SlamState,
         return
 
     while not stop_event.is_set():
-        # ---- connect -------------------------------------------------------
+        # try to connect to server side 
         try:
             sock = socket.create_connection((host, port), timeout=5.0)
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -131,10 +121,10 @@ def _slam_loop(host: str, port: int, state: _SlamState,
         state.update_status("connected – initialising SLAM …")
         print(f"[client] connected to {host}:{port}")
 
-        # ---- initialise a fresh SLAM instance per connection ---------------
         laser = Laser(SCAN_SIZE, SCAN_RATE_HZ, DETECTION_ANGLE, MAX_DISTANCE_MM)
-        start_x_mm = (MAP_SIZE_METERS * 1000) * 0.05        # horizontal center
-        start_y_mm = (MAP_SIZE_METERS * 1000) / 2     # 5% from bottom edge
+        # we want the starting position of the robot to be plotted at the bottom center
+        start_x_mm = (MAP_SIZE_METERS * 1000) * 0.05        # center
+        start_y_mm = (MAP_SIZE_METERS * 1000) / 2     # buffer from the bottom edge
 
         laser = Laser(SCAN_SIZE, SCAN_RATE_HZ, DETECTION_ANGLE, MAX_DISTANCE_MM)
         slam  = RMHC_SLAM(
@@ -142,13 +132,15 @@ def _slam_loop(host: str, port: int, state: _SlamState,
             MAP_SIZE_PIXELS,
             MAP_SIZE_METERS,
             hole_width_mm=HOLE_WIDTH_MM,
-            map_quality=MAP_QUALITY,  # <-- add this
+            map_quality=MAP_QUALITY,
         )
+
+        # directly access and hardcode the starting position
         slam.position =  pybreezyslam.Position(start_x_mm, start_y_mm, 0)
         mapbytes: bytearray = bytearray(MAP_SIZE_PIXELS * MAP_SIZE_PIXELS)
         previous_distances: Optional[list[int]] = None
 
-        # ---- receive loop --------------------------------------------------
+        # receving information from the server side
         buf = b""
         try:
             while not stop_event.is_set():
@@ -166,12 +158,10 @@ def _slam_loop(host: str, port: int, state: _SlamState,
                     except json.JSONDecodeError:
                         continue
 
-                    # Status / error message from the server
                     if msg.get("type") == "status":
                         state.update_status(msg.get("status", ""), msg.get("error", ""))
                         continue
 
-                    # Raw scan message
                     distances: list[int]   = msg["distances_mm"]
                     angles:    list[float] = msg["angles_deg"]
                     valid:     int         = msg["valid_points"]
@@ -203,10 +193,6 @@ def _slam_loop(host: str, port: int, state: _SlamState,
 
     print("[client] SLAM thread exiting")
 
-
-# ---------------------------------------------------------------------------
-# Matplotlib viewer
-# ---------------------------------------------------------------------------
 
 class SlamViewer:
     def __init__(self, host: str, port: int) -> None:
@@ -309,11 +295,7 @@ class SlamViewer:
         self._closed = True
         self.stop_event.set()
         self._slam_thread.join(timeout=3.0)
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+        
 
 def main() -> None:
     viewer = SlamViewer("100.68.229.80",12345)

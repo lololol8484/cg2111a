@@ -5,12 +5,6 @@ tcp_server.py  -  Raspberry Pi side.
 Connects to the RPLidar, resamples each 360-degree scan into a fixed-size
 array, and streams the raw scan data to a remote client over TCP.
 
-All SLAM processing happens on the client.  The Pi only needs:
-    pyrplidar, numpy (+ this file and lidar.py / settings.py)
-
-Usage (on the Pi, from inside slam_testy/):
-    python3 tcp_server.py [--host 0.0.0.0] [--port 65432]
-
 Wire protocol  (newline-terminated JSON, one message per scan round):
     {
         "distances_mm": [<int>, ...],   # SCAN_SIZE elements
@@ -114,7 +108,7 @@ def _serve_client(conn: socket.socket, lidar, scan_mode: int) -> None:
                 "round":        round_num,
             })
             if not ok:
-                break   # client disconnected – wait for the next one
+                break  
 
     except Exception as exc:
         _send_json(conn, {"type": "status", "status": "error", "error": str(exc)})
@@ -135,6 +129,8 @@ def main() -> None:
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        # ip addres is client side tailscale ip
         srv.bind(("100.68.229.80",12345))
         srv.listen(1)
 

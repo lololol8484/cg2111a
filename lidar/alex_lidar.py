@@ -185,44 +185,6 @@ def performSingleScan(lidar:PyRPlidar = _LIDAR_OBJECT , mode=2):
             pass
 
 
-def mask_occlusion(angles, distances, qualities,
-                   min_angle, max_angle,
-                   mode="remove"):  
-    """
-    Masks out a sector of lidar data.
-
-    mode:
-        "remove" → deletes points
-        "inf"    → sets distance to inf
-        "zero"   → sets distance to 0
-    """
-    new_ang = []
-    new_dist = []
-    new_qual = []
-
-    for a, d, q in zip(angles, distances, qualities):
-        # Check if angle is inside blocked region
-        if min_angle <= max_angle:
-            blocked = (min_angle <= a <= max_angle)
-        else:
-            # handles wrap-around (e.g. 350° to 20°)
-            blocked = (a >= min_angle or a <= max_angle)
-
-        if blocked:
-            if mode == "remove":
-                continue
-            elif mode == "inf":
-                d = float("inf")
-            elif mode == "zero":
-                d = 0
-
-        new_ang.append(a)
-        new_dist.append(d)
-        new_qual.append(q)
-
-    return tuple(new_ang), tuple(new_dist), tuple(new_qual)
-
-
 def process_scan(incomingScanTuple, scanState = {"r":0, "buff":[], "doScan":False}):
     """
     Processes incoming scan data and manages scan rounds.
@@ -258,12 +220,6 @@ def process_scan(incomingScanTuple, scanState = {"r":0, "buff":[], "doScan":Fals
         ang = tuple([x.angle for x in scanState["buff"]])
         dist = tuple([x.distance for x in scanState["buff"]])
         quality = tuple([x.quality for x in scanState["buff"]])
-        ang, dist, quality = mask_occlusion(
-            ang, dist, quality,
-            min_angle=120,   # <-- adjust this
-            max_angle=240,   # <-- adjust this
-            mode="8000"       # recommended for SLAM
-        )
         # Clear the buffer to make way for the next scan
         buff.clear()
         # add current scan to the buffer as the first scan of the next round

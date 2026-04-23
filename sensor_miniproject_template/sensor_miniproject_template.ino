@@ -72,7 +72,7 @@ static unsigned int _timerTicks = 0;
 // Our last time and current time variables in ms
 static unsigned long _lastTime = 0;
 static unsigned long _currentTime = 0;
-// The THRESHOLD value for debouncing
+// The threshold value for debouncing
 #define THRESHOLD 50  // in ms
 #define BUTTON_PIN PD0 // External Interrupt 0 is on Digital Pin 21 for Mega
  
@@ -99,17 +99,6 @@ ISR(INT0_vect) {
     }
   }
 }
-
-/*
-ISR(TIMER4_COMPA_vect) {
-  // triggers every 0.1 ms
-  _timerTicks++;
-  if (_timerTicks == 10) {
-    _timerTicks = 0;
-    _currentTime++; // shows the current time in ms
-  }
-}
-*/
 
 // =============================================================
 // Color sensor (TCS3200)
@@ -184,16 +173,7 @@ uint32_t measureColor(uint8_t s2State, uint8_t s3State) {
 
   edgeCount = 0;
 
-  //TCCR5A = 0;
-  //TCCR5B = 0;
-  //TCNT5 = 0;
-  //OCR5A = 24999;
-
   EIMSK |= (1 << INT1);         
-
-  //TCCR5B = (1 << WGM52) | (1 << CS51) | (1 << CS50);
-  
-  //while (TCNT5<OCR5A);
 
   uint32_t prev_time = millis();
   while(millis() - prev_time < 100);
@@ -410,6 +390,7 @@ static void handleCommand(const TPacket *cmd) {
             sendStatus(buttonState);
             break;
 
+    // command handler for colour sensor
     case COMMAND_COLOR_SENSOR: 
       uint32_t r, g, b;
       TPacket resp;
@@ -425,6 +406,7 @@ static void handleCommand(const TPacket *cmd) {
       sendFrame(&resp);
       break;
 
+    // command handlers for movement
     case COMMAND_MOVE_FORWARD: 
       moveForward(String(cmd->data).toInt());
       break;
@@ -445,6 +427,7 @@ static void handleCommand(const TPacket *cmd) {
       robotVelocity = String(cmd->data).toInt();
       break;
 
+    // command handlers for arm
     case COMMAND_ARM_HOME:
       baseTarget = 90;
       shoulderTarget = 10;
@@ -471,13 +454,6 @@ static void handleCommand(const TPacket *cmd) {
     case COMMAND_ARM_VELOCITY:
       msPerDeg = constrain(String(cmd->data).toInt(), msPerDegMin, msPerDegMax);
       break;
-
-            // call the color reading function;
-            // send packet
-
-        // TODO (Activity 2): add COMMAND_COLOR case here.
-        //   Call your color-reading function (which returns Hz), then send a
-        //   response packet with the three channel frequencies in Hz.
     }
 }
 
@@ -509,18 +485,13 @@ void setup() {
   PORTD |= (1 << PORTD3);
   // Enable INT0, INT2, INT3
   EIMSK |= (1 << INT0) | (1 << INT2) | (1 << INT3);
-  //TCCR4A = 0b00000000;
-  //TIMSK4 = 0b00000010;  
-  //TCNT4 = 0;
-  //OCR4A = 200;
-  //TCCR4B = 0b00001010;
   colorSensorSetup();
   robotArmSetup();
   sei();
 }
 
 void loop() {
-    // --- 1. Report any E-Stop state change to the Pi ---
+    // report any changes in estop and send it over to the pi
     if (stateChanged) {
         cli();
         TState state = buttonState;
@@ -529,7 +500,7 @@ void loop() {
         sendStatus(state);
     }
 
-    // --- 2. Process incoming commands from the Pi ---
+    // receive and process the incoming commands from the pi
     TPacket incoming;
     if (receiveFrame(&incoming)) {
         handleCommand(&incoming);

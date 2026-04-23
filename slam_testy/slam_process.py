@@ -68,7 +68,7 @@ def run_slam_process(pss: ProcessSharedState) -> None:
         from breezyslam.algorithms import RMHC_SLAM
         from breezyslam.sensors import Laser
     except ImportError:
-        pss.set_error('BreezySLAM not installed. Run: bash install_slam.sh')
+        pss.set_error('BreezySLAM not installed.')
         pss.stopped.value = True
         return
 
@@ -88,18 +88,8 @@ def run_slam_process(pss: ProcessSharedState) -> None:
 
     scan_mode = lidar_driver.get_scan_mode(lidar)
 
-    # laser = Laser(SCAN_SIZE, SCAN_RATE_HZ, DETECTION_ANGLE, MAX_DISTANCE_MM)
-    # slam = RMHC_SLAM(
-    #     laser,
-    #     MAP_SIZE_PIXELS,
-    #     MAP_SIZE_METERS,
-    #     hole_width_mm=HOLE_WIDTH_MM,
-    #     map_quality=MAP_QUALITY,
-    # )
-    # Inside _slam_loop, where SLAM is initialised:
-
     start_x_mm = (MAP_SIZE_METERS * 1000) / 2        # horizontal center
-    start_y_mm = (MAP_SIZE_METERS * 1000) * 0.05  - 2500   # 5% from bottom edge
+    start_y_mm = (MAP_SIZE_METERS * 1000) * 0.05  - 2500   # buffer from bottom edge
 
     laser = Laser(SCAN_SIZE, SCAN_RATE_HZ, DETECTION_ANGLE, MAX_DISTANCE_MM)
     slam  = RMHC_SLAM(
@@ -108,7 +98,6 @@ def run_slam_process(pss: ProcessSharedState) -> None:
         MAP_SIZE_METERS,
         hole_width_mm=HOLE_WIDTH_MM,
         map_quality=MAP_QUALITY,
-        init_coord=(start_x_mm, start_y_mm),   # <-- add this
     )
     mapbytes = bytearray(MAP_SIZE_PIXELS * MAP_SIZE_PIXELS)
 
